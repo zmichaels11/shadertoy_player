@@ -1,0 +1,48 @@
+apply plugin: 'cpp'
+
+model {
+    buildTypes {
+        debug
+        release
+    }
+
+    repositories {
+        libs (PrebuiltLibraries) {
+            glfwcpp {
+                headers.srcDirs 'src/glfw_cpp/include'
+            }
+        }
+    }
+
+    components {
+        shadertoy_player (NativeExecutableSpec) {
+            sources {
+                cpp {
+                    lib library: 'glfwcpp', linkage: 'api'
+
+                    source {
+                        srcDir 'src/main/cpp'
+                        include '**/*.cpp'
+                    }
+
+                    exportedHeaders {
+                        srcDir 'src/main/include'
+                        include '**/*.hpp'
+                    }
+                }
+            }
+
+            binaries.all {
+                cppCompiler.args << '-std=c++14'
+                
+                if (buildTypes.debug == buildType) {
+                    cppCompiler.args << '-g'
+                }
+
+                linker.args << '-lEGL'
+                linker.args << '-lGLESv2'
+                linker.args << '-lglfw'
+            }
+        }
+    }
+}
