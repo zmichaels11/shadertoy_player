@@ -1,7 +1,95 @@
 #include <iostream>
+#include <fstream>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <streambuf>
+#include <string>
+#include <vector>
 
 #define GLFW_INCLUDE_ES2
 #include "GLFW/glfw3.hpp"
+
+namespace {
+    std::string readFile(const std::string fileName) noexcept {
+        auto input = std::ifstream(fileName);
+        
+        return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+    }
+
+    GLuint createShader(GLenum type, const std::string& source) {
+        auto shader = glCreateShader(type);
+        auto src = source.c_str();
+        auto sz = static_cast<GLint> (source.size());
+
+        glShaderSource(shader, 1, &src, &sz);
+        glCompileShader(shader);
+
+        GLint status = GL_FALSE;
+
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+
+        if (GL_FALSE == status) {
+            GLint infoLogLength = 0;
+
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+            auto infoLog = std::make_unique<GLchar[]> (infoLogLength);
+
+            glGetShaderInfoLog(shader, infoLogLength, &infoLogLength, infoLog.get());
+
+            GLint srclen;
+            glGetShaderiv(shader, GL_SHADER_SOURCE_LENGTH, &srclen);
+
+            auto src = std::make_unique<GLchar[]> (srclen);
+
+            glGetShaderSource(shader, srclen, &srclen, src.get());
+
+            auto errmsg = std::stringstream();
+
+            errmsg << "Failed to compile shader: " << infoLog.get()
+                << "\nSource: " << src.get() << std::endl;
+
+            throw std::runtime_error(errmsg.str());
+        }
+
+        return shader;
+    }
+
+    GLuint createProgram(const std::vector<GLuint>& shaders) {
+        auto program = glCreateProgram();
+
+        for (auto& shader : shaders) {
+            glAttachShader(program, shader);
+        }
+
+        glLinkProgram(program);
+
+        for (auto& shader : shaders) {
+            //glDetachShader(program, shader);
+        }
+
+        GLint status = GL_FALSE;
+
+        glGetProgramiv(program, GL_LINK_STATUS, &status);
+
+        if (GL_FALSE == status) {
+            GLint infoLogLength = 0;
+
+            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
+
+            auto infoLog = std::make_unique<GLchar[]> (infoLogLength);
+
+            glGetProgramInfoLog(program, infoLogLength, &infoLogLength, infoLog.get());
+
+            auto errmsg = std::stringstream();
+            errmsg << "Failed to link program: " << infoLog.get();
+
+
+            throw std::runtime_error(errmsg.str());
+        }
+    }
+}
 
 int main(int argc, char** argv) {
     auto& ctx = glfw::Context::getInstance();
@@ -14,7 +102,7 @@ int main(int argc, char** argv) {
         auto hints = glfw::WindowHints::defaults();
         hints.clientAPI = glfw::ClientAPI::OPENGLES_API;
         hints.contextCreationAPI = glfw::ContextCreationAPI::EGL_CONTEXT_API;
-        hints.contextVersionMajor = 2;
+        hints.contextVersionMajor = 3;
         hints.contextVersionMinor = 0;
 
         glfw::Window::setHints(hints);
@@ -52,8 +140,37 @@ int main(int argc, char** argv) {
             << "\nOpenGL Vendor: " << glGetString(GL_VERSION) 
             << "\nOpenGL Renderer: " << glGetString(GL_RENDERER) 
             << "\nShading Language Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+            
+    GLuint program;
+
+    {
+        auto shaders = std::vector<GLuint> ();
+
+        {
+            auto vert = readFile("src/main/glsl/fsq.vert");
+
+            shaders.push_back(createShader(GL_VERTEX_SHADER, vert));
+        }
+
+        {
+            auto frag = std::stringstream();
+
+            frag << readFile("src/main/glsl/inputs.frag") << "\n";
+            frag << readFile("src/main/glsl/default.frag");
+
+            shaders.push_back(createShader(GL_FRAGMENT_SHADER, frag.str()));
+        }
+        
+        program = createProgram(shaders);
+
+        for (auto& shader : shaders) {
+            glDeleteShader(shader);
+        }
+    }
 
     glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+
+    
 
     while (false == window.shouldClose()) {
         ctx.pollEvents();
