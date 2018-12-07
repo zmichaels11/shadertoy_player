@@ -75,6 +75,8 @@ namespace glfw {
 
         void setFocusCallback(GLFWwindowfocusfun cb) noexcept;
 
+        void setCursorPositionCallback(GLFWcursorposfun cb) noexcept;
+
         void setIconifyCallback(GLFWwindowiconifyfun cb) noexcept;
 
         void setMonitor(const Monitor& monitor, int xpos, int ypos, int width, int height, int refreshRate = GLFW_DONT_CARE) noexcept;

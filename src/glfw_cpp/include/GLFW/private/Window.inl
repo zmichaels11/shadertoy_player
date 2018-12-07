@@ -148,6 +148,10 @@ namespace glfw {
         glfwRestoreWindow(_window);
     }
 
+    inline void Window::setCursorPositionCallback(GLFWcursorposfun cb) noexcept {
+        glfwSetCursorPosCallback(_window, cb);
+    }
+
     inline void Window::setFramebufferSizeCallback(GLFWframebuffersizefun cb) noexcept {
         glfwSetFramebufferSizeCallback(_window, cb);
     }
