@@ -88,6 +88,8 @@ namespace {
 
             throw std::runtime_error(errmsg.str());
         }
+
+        return program;
     }
 }
 
@@ -168,11 +170,55 @@ int main(int argc, char** argv) {
         }
     }
 
+    struct Inputs_T {
+        GLint iResolution;
+        GLint iTime;
+        GLint iTimeDelta;
+        GLint iFrame;
+        GLint iFrameRate;
+        GLint iChannelTime[4];
+        GLint iChannelResolution[4];
+        GLint iMouse;
+        GLint iChannel[8];
+        GLint iDate;
+        GLint iSampleRate;
+    } inputs;
+
+
+    inputs.iResolution = glGetUniformLocation(program, "iResolution");
+    inputs.iTime = glGetUniformLocation(program, "iTime");
+    inputs.iTimeDelta = glGetUniformLocation(program, "iTimeDelta");
+    inputs.iFrame = glGetUniformLocation(program, "iFrame");
+    inputs.iFrameRate = glGetUniformLocation(program, "iFrameRate");
+    inputs.iMouse = glGetUniformLocation(program, "iMouse");
+    inputs.iDate = glGetUniformLocation(program, "iDate");
+    inputs.iSampleRate = glGetUniformLocation(program, "iSampleRate");
+
     glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
 
-    
+    auto lastTime = ctx.getTime();
+    int frame = 0;
 
     while (false == window.shouldClose()) {
+        struct FramebufferSize_T {
+            int width, height;
+        } fbSize;
+
+        auto now = ctx.getTime();
+        auto dTime = now - lastTime;
+        auto frameRate = 1000.0F / dTime;
+
+        window.getFramebufferSize(fbSize.width, fbSize.height);
+
+        glUseProgram(program);
+        glUniform3f(inputs.iResolution, fbSize.width, fbSize.height, 1.0F);
+        glUniform1f(inputs.iTime, static_cast<float> (now));
+        glUniform1f(inputs.iTimeDelta, static_cast<float> (dTime));
+        glUniform1i(inputs.iFrame, frame);
+        glUniform1f(inputs.iFrameRate, static_cast<float> (frameRate));
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
         ctx.pollEvents();
         window.swapBuffers();
     }
