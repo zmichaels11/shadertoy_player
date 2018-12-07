@@ -1,6 +1,60 @@
 apply plugin: 'cpp'
 
 model {
+    platforms {
+        linux64 {
+            operatingSystem 'linux'
+            architecture 'x86_64'
+        }
+
+        windows64 {
+            operatingSystem 'windows'
+            architecture 'x86_64'
+        }
+    }
+
+    toolChains {
+        gcc (Gcc) {
+            eachPlatform {
+                cppCompiler.withArguments { args ->
+                    args << '-std=c++14'
+                    args << '-O2'
+                    args << '-Wall'
+                    args << '-fPIC'
+                    args << '-g'
+                }
+            }
+
+            target ("linux64") {
+                cppCompiler.withArguments { args -> args.add(0, "-m64") }
+                linker.withArguments { args -> 
+                        args.add(0, "-m64")
+
+                        int dummyIdx = -1;
+                        for (int i = 0; i < args.size(); i++) {
+                            if (args[i].endsWith('dummy.so') || args[i].endsWith('dummy.dll')) {
+                                dummyIdx = i;
+                            }
+                        }
+                        
+                        if (dummyIdx != -1) {
+                            args.remove(dummyIdx);
+                        }
+                }
+            }
+
+            target ("windows64") {
+                cCompiler.executable = 'x86_64-w64-mingw32-gcc'
+				cppCompiler.executable = 'x86_64-w64-mingw32-g++'
+				linker.executable = 'x86_64-w64-mingw32-g++'
+                assembler.executable = 'x86_64-w64-mingw32-as'
+                staticLibArchiver.executable = 'x86_64-w64-mingw32-ar'
+
+                linker.withArguments { args -> args << "-static" }
+            }
+        }
+    }
+
     buildTypes {
         debug
         release
@@ -9,16 +63,39 @@ model {
     repositories {
         libs (PrebuiltLibraries) {
             glfwcpp {
-                headers.srcDirs 'src/glfw_cpp/include'
+                binaries.withType(SharedLibraryBinary) { binary -> 
+                    headers.srcDirs 'src/glfw_cpp/include', 'src/glfw/include'
+
+                    if (binary.targetPlatform.operatingSystem.windows) {
+                        sharedLibraryFile = rootProject.file('bin/glfw/glfw3.dll')
+                    } else {
+                        sharedLibraryFile = rootProject.file('bin/dummy.so')
+                    }
+                }
+            }            
+
+            angle {
+                binaries.withType(SharedLibraryBinary) { binary ->
+                    if (binary.targetPlatform.operatingSystem.windows) {
+                        headers.srcDir rootProject.file('src/angle/include')
+                        sharedLibraryFile = rootProject.file('bin/angle/libGLESv2.dll')                            
+                    } else {
+                        sharedLibraryFile = rootProject.file('bin/dummy.so')
+                    }          
+                }
             }
         }
     }
 
     components {
         shadertoy_player (NativeExecutableSpec) {
+            targetPlatform 'linux64'
+            targetPlatform 'windows64'
+
             sources {
                 cpp {
-                    lib library: 'glfwcpp', linkage: 'api'
+                    lib library: 'glfwcpp', linkage: 'shared'
+                    lib library: 'angle', linkage: 'shared'
 
                     source {
                         srcDir 'src/main/cpp'
@@ -39,9 +116,11 @@ model {
                     cppCompiler.args << '-g'
                 }
 
-                linker.args << '-lEGL'
-                linker.args << '-lGLESv2'
-                linker.args << '-lglfw'
+                if (targetPlatform.operatingSystem.linux) {
+                    linker.args << '-lEGL'
+                    linker.args << '-lGLESv2'
+                    linker.args << '-lglfw'
+                }                
             }
         }
     }
