@@ -94,6 +94,12 @@ namespace {
 }
 
 int main(int argc, char** argv) {
+    std::string shader = "src/main/glsl/default.frag";
+
+    if (1 < argc) {
+        shader = argv[1];        
+    }
+
     auto& ctx = glfw::Context::getInstance();
 
     ctx.setErrorCallback([] (int err, const char * desc) {
@@ -158,7 +164,7 @@ int main(int argc, char** argv) {
             auto frag = std::stringstream();
 
             frag << readFile("src/main/glsl/inputs.frag") << "\n";
-            frag << readFile("src/main/glsl/default.frag");
+            frag << readFile(shader);
 
             shaders.push_back(createShader(GL_FRAGMENT_SHADER, frag.str()));
         }
