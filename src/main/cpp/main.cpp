@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <iostream>
 #include <fstream>
 #include <memory>
@@ -95,9 +97,16 @@ namespace {
 
 int main(int argc, char** argv) {
     std::string shader = "src/main/glsl/default.frag";
+    bool screensaverMode = false;
 
     if (1 < argc) {
-        shader = argv[1];        
+        for (int i = 1; i < argc; i++) {
+            if (0 == std::strcmp("--shader", argv[i])) {
+                shader = argv[++i];
+            } else if (0 == std::strcmp("--screensaver", argv[i])) {
+                screensaverMode = true;
+            }
+        }
     }
 
     auto& ctx = glfw::Context::getInstance();
@@ -132,14 +141,20 @@ int main(int argc, char** argv) {
 
     auto window = glfw::Window(windowSize.width, windowSize.height, "ShaderToy Player", &monitor);
 
-    window.setKeyCallback([] (auto pWindow, auto key, auto scancode, auto action, auto mods) {
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
+    window.setKeyCallback([] (auto win, auto key, auto scancode, auto action, auto mods) {
         // if any key is pressed
         if (GLFW_RELEASE == action) {
-            auto window = glfw::Window(pWindow);
-
-            window.setShouldClose(true);
+            glfwSetWindowShouldClose(win, GLFW_TRUE);
         }
     });
+
+    if (screensaverMode) {
+        window.setCursorPositionCallback([](auto win, auto x, auto y) {
+            glfwSetWindowShouldClose(win, GLFW_TRUE);
+        });
+    }
 
     window.makeContextCurrent();
     window.show();
@@ -210,11 +225,18 @@ int main(int argc, char** argv) {
             int width, height;
         } fbSize;
 
+        window.getFramebufferSize(fbSize.width, fbSize.height);
+
+        struct MousePosition_T {
+            double x, y;
+        } mousePos;
+
+        window.getCursorPosition(mousePos.x, mousePos.y);
+
         auto now = ctx.getTime();
         auto dTime = now - lastTime;
         auto frameRate = 1000.0F / dTime;
 
-        window.getFramebufferSize(fbSize.width, fbSize.height);
 
         glUseProgram(program);
         glUniform3f(inputs.iResolution, fbSize.width, fbSize.height, 1.0F);
@@ -222,6 +244,7 @@ int main(int argc, char** argv) {
         glUniform1f(inputs.iTimeDelta, static_cast<float> (dTime));
         glUniform1i(inputs.iFrame, frame);
         glUniform1f(inputs.iFrameRate, static_cast<float> (frameRate));
+        glUniform4f(inputs.iMouse, static_cast<float> (mousePos.x), static_cast<float> (mousePos.y), 0.0F, 0.0F);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
